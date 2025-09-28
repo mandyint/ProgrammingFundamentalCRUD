@@ -2,35 +2,63 @@
 #include <string.h>
 
 int choice;
-char loanID[1000], borrowName[1000], approvalDate[1000];
-int loanAmount;
 char search[100000], line[100000];
 
+struct userData{
+    char loanID[1000];
+    char borrowName[1000];
+    char approvalDate[1000];
+    int loanAmount;
+};
+
+int isDuplicated(const char *loanID) {
+    FILE *file = fopen("loan_data.csv", "r");
+    if (file == NULL) return 0;
+    while (fgets(line, sizeof(line), file)) {
+        char existingLoanID[1000];
+        sscanf(line, "%[^,]", existingLoanID);
+        if (strcmp(existingLoanID, loanID) == 0) {
+            fclose(file);
+            return 1;
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
 void addData(){
+    struct userData user;
     char status;
     printf("Add data\n");
     printf("Loan ID: ");
-    scanf("%s", loanID);
+    scanf("%s", user.loanID);
             
     printf("Borrow name: ");
-    scanf("%s", borrowName);
+    scanf("%s", user.borrowName);
 
     printf("Loan amount: ");
-    scanf("%d", &loanAmount);
+    scanf("%d", &user.loanAmount);
 
     printf("Approval date (d/m/y): ");
-    scanf("%s", approvalDate);
+    scanf("%s", user.approvalDate);
 
     FILE *file = fopen("loan_data.csv", "a");
     if(file == NULL) printf("Failed to open the file.");
 
     printf("Confirm data? (y/n): ");
     scanf(" %c", &status);
-    if(status == 'y'){
-        fprintf(file, "%s,%s,%d,%s\n", loanID, borrowName, loanAmount, approvalDate);
+    if (status == 'y') {
+        if (isDuplicated(user.loanID)) {
+            printf("⚠️ Error: Loan ID already exists! Data not saved.\n");
+            addData();
+        }
+
+        fprintf(file, "%s,%s,%d,%s\n",
+                user.loanID, user.borrowName,
+                user.loanAmount, user.approvalDate);
         fclose(file);
-        printf("Data saved to loans.csv\n");
-    }else{
+        printf("✅ Data saved to loan_data.csv\n");
+    } else {
         addData();
     }
 }
@@ -88,23 +116,6 @@ void updateData(){
         printf("+----------+------------+-------------+----------------+\n");
         count++;
         i++;
-    }
-
-    printf("Please select number of data to update :");
-    scanf("%d", &num);
-    if(num == i){
-        while(fgets(line, sizeof(line), file) != NULL){
-                
-            char *loanID = strtok(line, ",");
-            char *borrowName = strtok(NULL, ",");
-            char *loanAmount = strtok(NULL, ",");
-            char *approvalDate = strtok(NULL, "\n");
-
-        printf("| %-8s | %-10s | %-11s | %-14s | %-3d |\n", loanID, borrowName, loanAmount, approvalDate, i);
-        printf("+----------+------------+-------------+----------------+\n");
-        }
-    printf("is this the data you want to update? (y/n)");
-    scanf("%c", &updateStatus);
     }
 }
 
