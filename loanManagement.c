@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 int choice;
 int nextID = 1;
@@ -97,26 +98,34 @@ void searchData(){
     fclose(file);
 }
 
-int updateFunc(const int *choiceUpdate){
-    
-}
-
 void updateData(){
     int countLine = 0;
-    char updateStatus;
+    char line[1024];
     char validatePass[12];
     int choiceUpdate;
+    char selectLoanID[1000];
+    char newValue[1000];
+    int found;
+
     FILE *file = fopen("loan_data.csv", "r");
-    int num;
+
+    printf("Please enter password for admin to update data: ");
+    scanf("%s", validatePass);
+    if (strcmp(validatePass, password) == 0) {
+        printf("Welcome admin!\n");
+    }else{
+        printf("You do not have permission to update files.\n");
+        return;
+    }
 
     printf("Update data\n");
-    while(fgets(line, sizeof(line), file) != NULL){
-        if(countLine < 1){
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (countLine < 1) {
             printf("+----------+------------+-------------+----------------+\n");
             printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
             printf("+----------+------------+-------------+----------------+\n");
         }
-            
+
         char *loanID = strtok(line, ",");
         char *borrowName = strtok(NULL, ",");
         char *loanAmount = strtok(NULL, ",");
@@ -126,37 +135,98 @@ void updateData(){
         printf("+----------+------------+-------------+----------------+\n");
         countLine++;
     }
+    fclose(file);
 
-    printf("Please enter password for admin to update data : ");
-    scanf("%s", validatePass);
-    if(strcmp(validatePass, password) == 0){
-        do{
-            printf("Welcome, admin! Please select element you want to update.\n");
-            printf("1. Borrower\n");
-            printf("2. Loan Amount\n");
-            printf("3. Approval date\n");
-            printf("4. Quit\n");
-            printf("Select : ");
-            scanf("%d", &choiceUpdate);
+    do {
+        printf("Please enter Loan ID you want to update (q to quit to main menu): ");
+        scanf("%s", selectLoanID);
+        if(strcmp(selectLoanID, "q") == 0) break;
 
-            switch(choiceUpdate){
-                case 1:
-                    break;
+        printf("Please select element you want to update.\n");
+        printf("1. Borrower\n");
+        printf("2. Loan Amount\n");
+        printf("3. Approval date\n");
+        printf("4. Quit to main menu\n");
+        printf("Select: ");
+        scanf("%d", &choiceUpdate);
 
-                case 2:
-                    break;
+        if (choiceUpdate == 4) continue;
 
-                case 3:
-                    break;
+        printf("Enter new value: ");
+        scanf(" %[^\n]", newValue);
 
-                default:
-                    break;
+        FILE *file = fopen("loan_data.csv", "r");
+        FILE *temp = fopen("temp.csv", "w");
+
+        found = 0;
+        while (fgets(line, sizeof(line), file)) {
+            char id[100], name[100], date[100];
+            int amount;
+
+            sscanf(line, "%[^,],%[^,],%d,%s", id, name, &amount, date);
+
+            if (strcmp(id, selectLoanID) == 0) {
+                found = 1;
+                if (choiceUpdate == 1)
+                    strcpy(name, newValue);
+                else if (choiceUpdate == 2)
+                    amount = atoi(newValue);
+                else if (choiceUpdate == 3)
+                    strcpy(date, newValue);
             }
-        }while(choiceUpdate != 4);
+
+            fprintf(temp, "%s,%s,%d,%s\n", id, name, amount, date);
+        }
+
+        fclose(file);
+        fclose(temp);
+
+        if (found) {
+            remove("loan_data.csv");
+            rename("temp.csv", "loan_data.csv");
+            printf("Data updated successfully!\n");
+        } else {
+            remove("temp.csv");
+            printf("Loan ID not found. Please try again.\n");
+        }
+
+    }while(1);
+}
+
+void deleteData(){
+    int countLine = 0;
+    char validatePass[12];
+    FILE *file = fopen("loan_data.csv", "r");
+    FILE *temp = fopen("temp.csv", "w");
+
+    printf("Please enter password for admin to delete data: ");
+    scanf("%s", validatePass);
+    if (strcmp(validatePass, password) == 0) {
+        printf("Welcome admin!\n");
     }else{
-        printf("You do not have permission to update files.\n");
+        printf("You do not have permission to delete files.\n");
+        return;
     }
 
+    printf("Delete data\n");
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (countLine < 1) {
+            printf("+----------+------------+-------------+----------------+\n");
+            printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
+            printf("+----------+------------+-------------+----------------+\n");
+        }
+
+        char *loanID = strtok(line, ",");
+        char *borrowName = strtok(NULL, ",");
+        char *loanAmount = strtok(NULL, ",");
+        char *approvalDate = strtok(NULL, "\n");
+
+        printf("| %-8s | %-10s | %-11s | %-14s |\n", loanID, borrowName, loanAmount, approvalDate);
+        printf("+----------+------------+-------------+----------------+\n");
+        countLine++;
+    }
+    fclose(file);
+    
 }
 
 int main(){
@@ -184,9 +254,9 @@ int main(){
         updateData();
             break;
 
-        // case 4:
-        // deleteData();
-        //     break;
+        case 4:
+        deleteData();
+            break;
             
         default:
             break;
