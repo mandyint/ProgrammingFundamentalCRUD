@@ -12,6 +12,7 @@ struct userData{
     char borrowName[100000];
     char approvalDate[100000];
     int loanAmount;
+    int dataStatus;
 };
 
 int readFile(const char *loanDataFile){
@@ -36,6 +37,7 @@ void addData(){
 
     nextID = readFile("loan_data.csv") + 1;
     sprintf(user.loanID, "L%03d", nextID);
+    user.dataStatus = 0;
     
     printf("Add data\n");
 
@@ -57,8 +59,8 @@ void addData(){
     scanf(" %c", &confirmStatus);
 
     if(confirmStatus == 'y'){
-        fprintf(file, "%s,%s,%d,%s\n",
-            user.loanID, user.borrowName, user.loanAmount, user.approvalDate);
+        fprintf(file, "%s,%s,%d,%s,%d\n",
+            user.loanID, user.borrowName, user.loanAmount, user.approvalDate, user.dataStatus);
         fclose(file);
         printf("Data saved %s\n", user.loanID);
     }else{
@@ -68,6 +70,7 @@ void addData(){
 }
 
 void searchData(){
+    struct userData user;
     char search[100000];
     int found = 0, count = 0;
     FILE *file = fopen("loan_data.csv", "r");
@@ -75,7 +78,8 @@ void searchData(){
     scanf("%s", search);
 
     while(fgets(line, sizeof(line), file) != NULL){
-        if(strstr(line, search)){
+        sscanf(line, "%[^,],%[^,],%d,%[^,],%d", user.loanID, user.borrowName, &user.loanAmount, user.approvalDate, &user.dataStatus);
+        if(strstr(line, search) && user.dataStatus != 1){
             if(count < 1){
                 printf("+----------+------------+-------------+----------------+\n");
                 printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
@@ -85,7 +89,8 @@ void searchData(){
             char *loanID = strtok(line, ",");
             char *borrowName = strtok(NULL, ",");
             char *loanAmount = strtok(NULL, ",");
-            char *approvalDate = strtok(NULL, "\n");
+            char *approvalDate = strtok(NULL, ",");
+            char *status = strtok(NULL, "\n");
 
             printf("| %-8s | %-10s | %-11s | %-14s |\n", loanID, borrowName, loanAmount, approvalDate);
             found = 1;   
@@ -99,8 +104,9 @@ void searchData(){
 }
 
 void updateData(){
+    struct userData user;
     int countLine = 0;
-    char line[1024];
+    char line[100000];
     char validatePass[12];
     int choiceUpdate;
     char selectLoanID[1000];
@@ -120,21 +126,25 @@ void updateData(){
 
     printf("Update data\n");
     while (fgets(line, sizeof(line), file) != NULL) {
-        if (countLine < 1) {
-            printf("+----------+------------+-------------+----------------+\n");
-            printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
-            printf("+----------+------------+-------------+----------------+\n");
-        }
+        sscanf(line, "%[^,],%[^,],%d,%[^,],%d", user.loanID, user.borrowName, &user.loanAmount, user.approvalDate, &user.dataStatus);
+        if(user.dataStatus == 1) continue;
+            if (countLine < 1) {
+                printf("+----------+------------+-------------+----------------+\n");
+                printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
+                printf("+----------+------------+-------------+----------------+\n");
+            }
 
-        char *loanID = strtok(line, ",");
-        char *borrowName = strtok(NULL, ",");
-        char *loanAmount = strtok(NULL, ",");
-        char *approvalDate = strtok(NULL, "\n");
+            char *loanID = strtok(line, ",");
+            char *borrowName = strtok(NULL, ",");
+            char *loanAmount = strtok(NULL, ",");
+            char *approvalDate = strtok(NULL, ",");
+            char *status = strtok(NULL, "\n");
 
-        printf("| %-8s | %-10s | %-11s | %-14s |\n", loanID, borrowName, loanAmount, approvalDate);
-        printf("+----------+------------+-------------+----------------+\n");
-        countLine++;
+            printf("| %-8s | %-10s | %-11s | %-14s |\n", loanID, borrowName, loanAmount, approvalDate);
+            printf("+----------+------------+-------------+----------------+\n");
+            countLine++;
     }
+    
     fclose(file);
 
     do {
@@ -165,14 +175,11 @@ void updateData(){
 
             sscanf(line, "%[^,],%[^,],%d,%s", id, name, &amount, date);
 
-            if (strcmp(id, selectLoanID) == 0) {
+            if (strcmp(id, selectLoanID) == 0 && (user.dataStatus != 1)) {
                 found = 1;
-                if (choiceUpdate == 1)
-                    strcpy(name, newValue);
-                else if (choiceUpdate == 2)
-                    amount = atoi(newValue);
-                else if (choiceUpdate == 3)
-                    strcpy(date, newValue);
+                if (choiceUpdate == 1) strcpy(name, newValue);
+                else if (choiceUpdate == 2) amount = atoi(newValue);
+                else if (choiceUpdate == 3) strcpy(date, newValue);
             }
 
             fprintf(temp, "%s,%s,%d,%s\n", id, name, amount, date);
@@ -193,40 +200,238 @@ void updateData(){
     }while(1);
 }
 
-void deleteData(){
-    int countLine = 0;
+void deleteData() {
+    struct userData user;
+    int choiceUpdate, found, countLine;
+    char selectLoanID[100];
+    char line[10000];
     char validatePass[12];
-    FILE *file = fopen("loan_data.csv", "r");
-    FILE *temp = fopen("temp.csv", "w");
+    char confirm;
 
-    printf("Please enter password for admin to delete data: ");
-    scanf("%s", validatePass);
-    if (strcmp(validatePass, password) == 0) {
+        printf("Please enter password for admin to update data: ");
+        scanf("%s", validatePass);
+        if(strcmp(validatePass, password) != 0){
+            printf("You do not have permission to update files.\n");
+                return;
+        }
         printf("Welcome admin!\n");
-    }else{
-        printf("You do not have permission to delete files.\n");
-        return;
-    }
 
-    printf("Delete data\n");
-    while (fgets(line, sizeof(line), file) != NULL) {
-        if (countLine < 1) {
-            printf("+----------+------------+-------------+----------------+\n");
-            printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
-            printf("+----------+------------+-------------+----------------+\n");
+    do {
+        printf("Please select mode you want to delete.\n");
+        printf("1. Delete data\n");
+        printf("2. Recover data\n");
+        printf("3. Clear the bin\n");
+        printf("4. Quit to main menu\n");
+        printf("Select: ");
+        scanf("%d", &choiceUpdate);
+        
+        if (choiceUpdate == 1) {
+            FILE *file = fopen("loan_data.csv", "r");
+            if (!file) {
+                printf("Error opening file.\n");
+                return;
+            }
+
+            countLine = 0;
+            while (fgets(line, sizeof(line), file)) {
+                sscanf(line, "%[^,],%[^,],%d,%[^,],%d",
+                       user.loanID, user.borrowName, &user.loanAmount,
+                       user.approvalDate, &user.dataStatus);
+
+                if (user.dataStatus == 1) continue;
+
+                if (countLine == 0) {
+                    printf("+----------+------------+-------------+----------------+\n");
+                    printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
+                    printf("+----------+------------+-------------+----------------+\n");
+                }
+
+                printf("| %-8s | %-10s | %-11d | %-14s |\n",
+                       user.loanID, user.borrowName, user.loanAmount, user.approvalDate);
+                printf("+----------+------------+-------------+----------------+\n");
+                countLine++;
+            }
+
+            if (countLine == 0) {
+                printf("No records to delete.\n");
+                fclose(file);
+                continue;
+            }
+
+            printf("Please enter Loan ID you want to delete (q to quit): ");
+            scanf("%s", selectLoanID);
+            if (strcmp(selectLoanID, "q") == 0) {
+                fclose(file);
+                break;
+            }
+
+            printf("Are you sure you want to delete Loan ID '%s'? (y/n): ", selectLoanID);
+            scanf(" %c", &confirm);
+            if (confirm != 'y' && confirm != 'Y') {
+                printf("❌ Cancelled.\n");
+                fclose(file);
+                continue;
+            }
+
+            rewind(file);
+            FILE *temp = fopen("temp.csv", "w");
+            if (!temp) {
+                printf("Error opening temp file.\n");
+                fclose(file);
+                return;
+            }
+
+            found = 0;
+            while (fgets(line, sizeof(line), file)) {
+                sscanf(line, "%[^,],%[^,],%d,%[^,],%d",
+                       user.loanID, user.borrowName, &user.loanAmount,
+                       user.approvalDate, &user.dataStatus);
+
+                if (strcmp(user.loanID, selectLoanID) == 0 && user.dataStatus == 0) {
+                    user.dataStatus = 1;
+                    found = 1;
+                }
+
+                fprintf(temp, "%s,%s,%d,%s,%d\n",
+                        user.loanID, user.borrowName, user.loanAmount,
+                        user.approvalDate, user.dataStatus);
+            }
+
+            fclose(file);
+            fclose(temp);
+            remove("loan_data.csv");
+            rename("temp.csv", "loan_data.csv");
+
+            if (found)
+                printf("✅ Data deleted successfully.\n");
+            else
+                printf("❌ Loan ID not found or already deleted.\n");
         }
 
-        char *loanID = strtok(line, ",");
-        char *borrowName = strtok(NULL, ",");
-        char *loanAmount = strtok(NULL, ",");
-        char *approvalDate = strtok(NULL, "\n");
+        else if (choiceUpdate == 2) {
+            printf("Recover data\n");
+            FILE *file = fopen("loan_data.csv", "r");
+            if (!file) {
+                printf("Error opening file.\n");
+                return;
+            }
 
-        printf("| %-8s | %-10s | %-11s | %-14s |\n", loanID, borrowName, loanAmount, approvalDate);
-        printf("+----------+------------+-------------+----------------+\n");
-        countLine++;
-    }
-    fclose(file);
-    
+            countLine = 0;
+            while (fgets(line, sizeof(line), file)) {
+                sscanf(line, "%[^,],%[^,],%d,%[^,],%d",
+                       user.loanID, user.borrowName, &user.loanAmount,
+                       user.approvalDate, &user.dataStatus);
+                if (user.dataStatus == 0) continue;
+
+                if (countLine == 0) {
+                    printf("+----------+------------+-------------+----------------+\n");
+                    printf("| Loan ID  | Borrower   | Loan Amount | Approval Date  |\n");
+                    printf("+----------+------------+-------------+----------------+\n");
+                }
+
+                printf("| %-8s | %-10s | %-11d | %-14s |\n",
+                       user.loanID, user.borrowName, user.loanAmount, user.approvalDate);
+                printf("+----------+------------+-------------+----------------+\n");
+                countLine++;
+            }
+            fclose(file);
+
+            if (countLine == 0) {
+                printf("No deleted records found.\n");
+                continue;
+            }
+
+            printf("Enter Loan ID to recover: ");
+            scanf("%s", selectLoanID);
+
+            file = fopen("loan_data.csv", "r");
+            FILE *temp = fopen("temp.csv", "w");
+            found = 0;
+
+            printf("Are you sure you want to recover Loan ID '%s'? (y/n): ", selectLoanID);
+            scanf(" %c", &confirm);
+            if (confirm != 'y' && confirm != 'Y') {
+                printf("❌ Cancelled.\n");
+                fclose(file);
+                continue;
+            }
+
+            while (fgets(line, sizeof(line), file)) {
+                sscanf(line, "%[^,],%[^,],%d,%[^,],%d",
+                       user.loanID, user.borrowName, &user.loanAmount,
+                       user.approvalDate, &user.dataStatus);
+
+                if (strcmp(user.loanID, selectLoanID) == 0 && user.dataStatus == 1) {
+                    user.dataStatus = 0;
+                    found = 1;
+                }
+
+                fprintf(temp, "%s,%s,%d,%s,%d\n",
+                        user.loanID, user.borrowName, user.loanAmount,
+                        user.approvalDate, user.dataStatus);
+            }
+
+            fclose(file);
+            fclose(temp);
+            remove("loan_data.csv");
+            rename("temp.csv", "loan_data.csv");
+
+            if (found)
+                printf("Record recovered successfully.\n");
+            else
+                printf("Loan ID not found in deleted records.\n");
+        }
+
+        else if (choiceUpdate == 3) {
+            FILE *file = fopen("loan_data.csv", "r");
+            FILE *temp = fopen("temp.csv", "w");
+            if (!file || !temp) {
+                printf("Error opening file.\n");
+                return;
+            }
+
+            printf("Are you sure you want to delete all the Loan ID that is inactive? If you delete with this method you won't be able to recover it. (y/n): ", selectLoanID);
+            scanf(" %c", &confirm);
+            if (confirm != 'y' && confirm != 'Y') {
+                printf("❌ Cancelled.\n");
+                fclose(file);
+                continue;
+            }
+
+            int cleared = 0;
+            while (fgets(line, sizeof(line), file)) {
+                sscanf(line, "%[^,],%[^,],%d,%[^,],%d",
+                       user.loanID, user.borrowName, &user.loanAmount,
+                       user.approvalDate, &user.dataStatus);
+
+                if (user.dataStatus == 1) {
+                    cleared++;
+                    continue;
+                }
+
+                fprintf(temp, "%s,%s,%d,%s,%d\n",
+                        user.loanID, user.borrowName, user.loanAmount,
+                        user.approvalDate, user.dataStatus);
+            }
+
+            fclose(file);
+            fclose(temp);
+            remove("loan_data.csv");
+            rename("temp.csv", "loan_data.csv");
+
+            printf("🗑️  Cleared %d deleted records.\n", cleared);
+        }
+
+        else if (choiceUpdate == 4) {
+            printf("Returning to main menu.\n");
+            break;
+        }
+
+        else {
+            printf("Invalid choice. Try again.\n");
+        }
+
+    } while (1);
 }
 
 int main(){
@@ -262,7 +467,6 @@ int main(){
             break;
         }
     }while(choice != 5);
-
 
     return 0;
 }
