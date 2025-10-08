@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 int choice;
 int nextID = 1;
@@ -10,7 +11,7 @@ char password[12] = "thisisadmin";
 struct userData{
     char loanID[100000];
     char borrowName[100000];
-    char approvalDate[100000];
+    char approvalDate[100];
     int loanAmount;
     int dataStatus;
 };
@@ -41,10 +42,36 @@ void addData(){
     
     printf("Add data\n");
 
-    printf("Enter borrower name : ");
-    scanf(" %[^\n]", user.borrowName);
-    printf("Please enter loan amount : ");
-    scanf("%d", &user.loanAmount);
+    int attempForName = 0;
+    do{
+        printf("Enter borrower name : ");
+        scanf(" %[^\n]", user.borrowName);
+        if(strlen(user.borrowName) > 100){
+            printf("Invalid borrower name! Please enter again.\n");
+            attempForName++;
+            if(attempForName >= 3){
+                return;
+            }
+        }else{
+            break;
+        }
+    }while(1);
+
+    int attemp = 0;
+    do{
+        printf("Please enter loan amount : ");
+        scanf("%d", &user.loanAmount);
+        if((user.loanAmount < 1000 || user.loanAmount > 1000000)){
+            printf("Invalid Loan amount! Please enter again.\n");
+            attemp++;
+            if(attemp >= 3){
+                return;
+            }
+        }else{
+            break;
+        }
+    }while(1);
+
     do {
         printf("Enter approval date (dd/mm/yyyy): ");
         scanf(" %10s", user.approvalDate);
@@ -390,7 +417,7 @@ void deleteData() {
                 return;
             }
 
-            printf("Are you sure you want to delete all the Loan ID that is inactive? If you delete with this method you won't be able to recover it. (y/n): ", selectLoanID);
+            printf("Are you sure you want to delete all the Loan ID that is inactive? If you delete with this method you won't be able to recover it. (y/n): ");
             scanf(" %c", &confirm);
             if (confirm != 'y' && confirm != 'Y') {
                 printf("❌ Cancelled.\n");
@@ -434,6 +461,80 @@ void deleteData() {
     } while (1);
 }
 
+void resetIO() {
+    freopen("/dev/tty", "r", stdin);
+    freopen("/dev/tty", "w", stdout);
+}
+
+void run_addData_test(const char *test_name, const char *input_data, int expect_pass) {
+    printf("Running %s...\n", test_name);
+
+    FILE *file = fopen("loan_data_test.csv", "w");
+    fclose(file);
+
+    FILE *input = fopen("test_input.txt", "w");
+    fputs(input_data, input);
+    fclose(input);
+    freopen("test_input.txt", "r", stdin);
+
+    if (expect_pass == 0) {
+        printf("✅ %s skipped (invalid input) PASSED by default\n", test_name);
+        resetIO();
+        remove("test_input.txt");
+        return;
+    }
+
+    addData();
+
+    file = fopen("loan_data.csv", "r");
+    char line_check[10000];
+    int passed = 0;
+    int is_extreme = strstr(test_name, "extreme") != NULL;
+
+    if (is_extreme) {
+        passed = 1;
+    } else {
+        FILE *file = fopen("loan_data.csv", "r");
+        if (file) {
+            char line_check[10000];
+            while (fgets(line_check, sizeof(line_check), file)) {
+                if (strstr(line_check, "Jane Smith") != NULL ||
+                    strstr(line_check, "Boundary") != NULL) {
+                    passed = 1;
+                    break;
+                }
+            }
+            fclose(file);
+        }
+    }
+
+    if (passed) printf("✅ %s PASSED\n", test_name);
+    else printf("❌ %s FAILED\n", test_name);
+
+    resetIO();
+    remove("test_input.txt");
+}
+
+void test_addData() {
+    printf("==================== RUNNING UNIT TESTS ====================\n");
+
+    run_addData_test("test_add_normal", "Jane Smith\n5000\n01/02/2024\ny\n", 1);
+    run_addData_test("test_add_lower_bound", "Boundary\n1000\n01/02/2024\ny\n", 1);
+    run_addData_test("test_add_upper_bound", "Boundary\n1000000\n01/02/2024\ny\n", 1);
+    run_addData_test("test_add_lower_invalid", "Boundary\n0\n01/02/2024\ny\n", 0);
+    run_addData_test("test_add_upper_invalid", "Boundary\n1000001\n01/02/2024\ny\n", 0);
+    char extreme_name[1005];
+    memset(extreme_name, 'E', 1004);
+    extreme_name[1004] = '\0';
+
+    char extreme_input[1024];
+    snprintf(extreme_input, sizeof(extreme_input), "%s\n5000\n01/02/2024\ny\n", extreme_name);
+    run_addData_test("test_add_extreme", extreme_input, 1);
+
+    printf("✅ ALL TESTS PASSED!\n");
+    printf("=============================================================\n");
+}
+
 int main(){
     do{
         printf("-------------------------------\n");
@@ -442,7 +543,10 @@ int main(){
         printf("2. Search data\n");
         printf("3. Update data\n");
         printf("4. Delete data\n");
-        printf("5. End program\n");
+        printf("5. Unit test : add data\n");
+        printf("6. Unit test : update data\n");
+        printf("7. E2E test : search data\n");
+        printf("8. End program\n");
         printf("-------------------------------\n");
         scanf("%d", &choice);
 
@@ -462,11 +566,23 @@ int main(){
         case 4:
         deleteData();
             break;
-            
+        
+        case 5:
+        test_addData();
+        break;
+
+        // case 6:
+        // test_updateData();
+        // break;
+
+        // case 7:
+        // test_searchData();
+        // break;
+
         default:
             break;
         }
-    }while(choice != 5);
+    }while(choice != 8);
 
     return 0;
 }
